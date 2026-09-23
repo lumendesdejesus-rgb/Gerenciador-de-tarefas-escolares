@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bellix Class</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root{
+    --bg:#f7f5ff; --card:#ffffff; --text:#231a3a; --muted:#6b6280;
+    --primary:#7c3aed; --primary-dark:#5b21b6; --border:#ece8f8;
+    --danger:#e11d48; --ok:#16a34a; --warn:#d97706; --late:#e11d48;
+    box-sizing:border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#161222; --card:#201a33; --text:#f1edfb; --muted:#a79fc4; --border:#2f2748;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#161222; --card:#201a33; --text:#f1edfb; --muted:#a79fc4; --border:#2f2748;
+  }
+  html{ scroll-padding-top: env(safe-area-inset-top, 0px); }
+  html,body{ height:100%; }
+  body{ margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; -webkit-font-smoothing:antialiased; }
+  .card{ background:var(--card); border:1px solid var(--border); border-radius:18px; }
+  .btn{ border-radius:12px; padding:10px 16px; font-weight:600; font-size:14px; cursor:pointer; border:none; }
+  .btn-primary{ background:var(--primary); color:#fff; }
+  .btn-primary:active{ background:var(--primary-dark); }
+  .btn-ghost{ background:transparent; color:var(--primary); border:1px solid var(--border); }
+  .btn-danger{ background:#fee2e2; color:var(--danger); }
+  input,select,textarea{
+    background:var(--card); color:var(--text); border:1px solid var(--border);
+    border-radius:10px; padding:8px 10px; font-size:14px; width:100%;
+  }
+  .chip{ font-size:11px; font-weight:700; padding:3px 9px; border-radius:999px; display:inline-block; }
+  .modal-backdrop{ position:fixed; inset:0; background:rgba(20,15,35,.5); display:flex; align-items:flex-end; justify-content:center; z-index:50; }
+  @media (min-width:640px){ .modal-backdrop{ align-items:center; } }
+  .modal{ background:var(--card); width:100%; max-width:480px; border-radius:20px 20px 0 0; padding:20px; max-height:88vh; overflow-y:auto; }
+  @media (min-width:640px){ .modal{ border-radius:20px; } }
+  .toast{ position:fixed; left:50%; transform:translateX(-50%); bottom:calc(24px + env(safe-area-inset-bottom,0px)); background:#1f1633; color:#fff; padding:10px 18px; border-radius:999px; font-size:13px; font-weight:600; z-index:100; box-shadow:0 8px 24px rgba(0,0,0,.25); }
+  .scrollx{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  ::-webkit-scrollbar{ width:0; height:0; }
+</style>
+</head>
+<body>
+<div id="app" style="max-width:640px;margin:0 auto;padding:16px 16px 100px;"></div>
+
+<script>
+const STORAGE_KEY = "bellixClassData_v1";
+
+const STATUS_STYLES = {
+  "Entregue": "bg-emerald-50 text-emerald-700",
+  "Pendente": "bg-slate-100 text-slate-600",
+  "Atrasado": "bg-amber-50 text-amber-700",
+  "Não entregue": "bg-rose-50 text-rose-700"
+};
+const MATERIA_STYLES = {
+  "Matemática":"bg-blue-50 text-blue-700","Português":"bg-rose-50 text-rose-700",
+  "Ciências":"bg-emerald-50 text-emerald-700","História":"bg-amber-50 text-amber-700",
+  "Geografia":"bg-teal-50 text-teal-700","Inglês":"bg-violet-50 text-violet-700",
+  "Arte":"bg-fuchsia-50 text-fuchsia-700","Outra":"bg-slate-100 text-slate-600"
+};
+const MATERIAS = Object.keys(MATERIA_STYLES);
+const STATUSES = Object.keys(STATUS_STYLES);
+
+function sampleData(){
+  return {
+    professorNome: "",
+    turmas: [
+      {id:"t1", nome:"6º Ano A"},
+      {id:"t2", nome:"7º Ano B"}
+    ],
+    alunos: [
+      {id:"a1", nome:"Ana Clara Silva", turmaId:"t1"},
+      {id:"a2", nome:"Bruno Oliveira", turmaId:"t1"},
+      {id:"a3", nome:"Camila Rocha", turmaId:"t1"},
+      {id:"a4", nome:"Diego Santos", turmaId:"t1"},
+      {id:"a5", nome:"Elisa Moura", turmaId:"t2"},
+      {id:"a6", nome:"Felipe Costa", turmaId:"t2"},
+      {id:"a7", nome:"Giovanna Lima", turmaId:"t2"},
+      {id:"a8", nome:"Henrique Alves", turmaId:"t2"}
+    ],
+    tarefas: [
+      {id:"ta1", titulo:"Frações e porcentagens - lista 03", descricao:"Resolver exercícios 12 a 24 da página 89.", materia:"Matemática", turmaId:"t1", dataEntrega:"2026-10-10"},
+      {id:"ta2", titulo:"Redação: Minhas férias", descricao:"Texto de 15 a 20 linhas.", materia:"Português", turmaId:"t1", dataEntrega:"2026-10-12"},
+      {id:"ta3", titulo:"Sistema Solar - maquete", descricao:"Em grupo de 3, construir maquete com legenda dos planetas.", materia:"Ciências", turmaId:"t2", dataEntrega:"2026-10-15"},
+      {id:"ta4", titulo:"Prova de verb to be", descricao:"Prova bimestral - unidade 4 e 5.", materia:"Inglês", turmaId:"t2", dataEntrega:"2026-10-08"}
+    ],
+    entregas: [
+      {tarefaId:"ta1", alunoId:"a1", status:"Entregue", nota:9},
+      {tarefaId:"ta1", alunoId:"a2", status:"Pendente"},
+      {tarefaId:"ta1", alunoId:"a3", status:"Atrasado", nota:7},
+      {tarefaId:"ta1", alunoId:"a4", status:"Entregue", nota:8.5},
+      {tarefaId:"ta3", alunoId:"a5", status:"Entregue", nota:9.5},
+      {tarefaId:"ta3", alunoId:"a6", status:"Pendente"},
+      {tarefaId:"ta3", alunoId:"a7", status:"Atrasado", nota:6},
+      {tarefaId:"ta3", alunoId:"a8", status:"Entregue", nota:8}
+    ]
+  };
+}
+
+let state = load();
+let ui = { tab:"turmas", openTurma:null, modal:null };
+
+function load(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return sampleData();
+}
+function persist(){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){}
+}
+function uid(p){ return p + Math.random().toString(36).slice(2,9); }
+
+function showToast(msg){
+  const el = document.createElement("div");
+  el.className = "toast";
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(), 1800);
+}
+function salvarManual(){
+  persist();
+  showToast("Dados salvos ✓");
+}
+
+function alunosDaTurma(tid){ return state.alunos.filter(a=>a.turmaId===tid); }
+function tarefasDaTurma(tid){ return state.tarefas.filter(t=>t.turmaId===tid); }
+function entregaDe(tarefaId, alunoId){ return state.entregas.find(e=>e.tarefaId===tarefaId && e.alunoId===alunoId); }
+
+function setEntrega(tarefaId, alunoId, status){
+  let e = entregaDe(tarefaId, alunoId);
+  if(e){ e.status = status; } else { state.entregas.push({tarefaId, alunoId, status}); }
+  persist();
+  render();
+}
+
+function confirmar(titulo, mensagem, onOk){
+  ui.modal = { type:"confirm", titulo, mensagem, onOk };
+  render();
+}
+
+function abrirModalTurma(turma){ ui.modal = { type:"turma", data: turma ? {...turma} : {id:null, nome:""} }; render(); }
+function salvarTurma(nome, id){
+  nome = nome.trim();
+  if(!nome) return;
+  if(id){ const t = state.turmas.find(x=>x.id===id); t.nome = nome; }
+  else { state.turmas.push({id:uid("t"), nome}); }
+  persist(); ui.modal=null; render();
+}
+function apagarTurma(id){
+  const t = state.turmas.find(x=>x.id===id);
+  confirmar(`Apagar ${t.nome}?`, "Isso vai apagar a turma, seus alunos, tarefas e entregas. Não dá pra desfazer.", ()=>{
+    state.turmas = state.turmas.filter(x=>x.id!==id);
+    state.alunos = state.alunos.filter(x=>x.turmaId!==id);
+    const tarefaIds = state.tarefas.filter(x=>x.turmaId===id).map(x=>x.id);
+    state.tarefas = state.tarefas.filter(x=>x.turmaId!==id);
+    state.entregas = state.entregas.filter(x=>!tarefaIds.includes(x.tarefaId));
+    if(ui.openTurma===id) ui.openTurma=null;
+    persist(); ui.modal=null; render();
+  });
+}
+
+function abrirModalAluno(turmaId, aluno){ ui.modal = { type:"aluno", data: aluno ? {...aluno} : {id:null, nome:"", turmaId} }; render(); }
+function salvarAluno(nome, id, turmaId){
+  nome = nome.trim();
+  if(!nome) return;
+  if(id){ const a = state.alunos.find(x=>x.id===id); a.nome = nome; }
+  else { state.alunos.push({id:uid("a"), nome, turmaId}); }
+  persist(); ui.modal=null; render();
+}
+function apagarAluno(id){
+  const a = state.alunos.find(x=>x.id===id);
+  confirmar(`Apagar ${a.nome}?`, "As entregas desse aluno também serão removidas.", ()=>{
+    state.alunos = state.alunos.filter(x=>x.id!==id);
+    state.entregas = state.entregas.filter(x=>x.alunoId!==id);
+    persist(); ui.modal=null; render();
+  });
+}
+
+function abrirModalTarefa(turmaId, tarefa){
+  ui.modal = { type:"tarefa", data: tarefa ? {...tarefa} : {id:null, titulo:"", descricao:"", materia:MATERIAS[0], turmaId, dataEntrega:""} };
+  render();
+}
+function salvarTarefa(d){
+  if(!d.titulo.trim()) return;
+  if(d.id){ Object.assign(state.tarefas.find(x=>x.id===d.id), d); }
+  else { d.id = uid("ta"); state.tarefas.push(d); }
+  persist(); ui.modal=null; render();
+}
+function apagarTarefa(id){
+  const t = state.tarefas.find(x=>x.id===id);
+  confirmar("Apagar tarefa?", `Tem certeza que quer apagar "${t.titulo}"?`, ()=>{
+    state.tarefas = state.tarefas.filter(x=>x.id!==id);
+    state.entregas = state.entregas.filter(x=>x.tarefaId!==id);
+    persist(); ui.modal=null; render();
+  });
+}
+
+function abrirDetalheTarefa(tarefa){ ui.modal = { type:"detalheTarefa", data: tarefa }; render(); }
+
+function limparTudo(){
+  confirmar("Limpar tudo e começar do zero?", "Isso vai apagar turmas, alunos, tarefas e entregas. Vamos manter só o seu nome de professor(a). Tem certeza absoluta?", ()=>{
+    const nome = state.professorNome;
+    state = { professorNome:nome, turmas:[], alunos:[], tarefas:[], entregas:[] };
+    persist(); ui.modal=null; render();
+    showToast("Dados apagados. Agora é só cadastrar suas turmas reais.");
+  });
+}
+function restaurarExemplo(){
+  confirmar("Restaurar dados de exemplo?", "Isso substitui os dados atuais pelos dados de demonstração.", ()=>{
+    const nome = state.professorNome;
+    state = sampleData();
+    state.professorNome = nome;
+    persist(); ui.modal=null; render();
+  });
+}
+
+function exportarBackup(){
+  const blob = new Blob([JSON.stringify(state, null, 2)], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "bellix-class-backup.json";
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  showToast("Backup exportado");
+}
+function importarBackup(file){
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const data = JSON.parse(reader.result);
+      if(!data.turmas || !data.alunos || !data.tarefas) throw new Error("formato inválido");
+      state = data;
+      persist(); render();
+      showToast("Backup importado ✓");
+    }catch(e){ showToast("Arquivo inválido"); }
+  };
+  reader.readAsText(file);
+}
+
+function esc(s){ return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+function render(){
+  const app = document.getElementById("app");
+  app.innerHTML = `
+    ${header()}
+    ${ui.tab==="turmas" ? viewTurmas() : viewConfig()}
+    ${ui.modal ? modal() : ""}
+  `;
+  wireEvents();
+}
+
+function header(){
+  return `
+  <div class="flex items-center justify-between mb-4 pt-2">
+    <div>
+      <div class="text-[20px] font-extrabold" style="color:var(--primary-dark)">Bellix Class</div>
+      <div class="text-[12px]" style="color:var(--muted)">${state.professorNome ? "Prof(a). "+esc(state.professorNome) : "controle de tarefas e deveres"}</div>
+    </div>
+    <button id="btnSalvar" class="btn btn-primary">Salvar</button>
+  </div>
+  <div class="flex gap-2 mb-4">
+    <button data-tab="turmas" class="btn ${ui.tab==="turmas"?"btn-primary":"btn-ghost"}" style="flex:1">Turmas</button>
+    <button data-tab="config" class="btn ${ui.tab==="config"?"btn-primary":"btn-ghost"}" style="flex:1">Configurações</button>
+  </div>`;
+}
+
+function viewTurmas(){
+  if(state.turmas.length===0){
+    return `<div class="card p-6 text-center">
+      <div class="text-[15px] font-bold mb-1">Nenhuma turma ainda</div>
+      <div class="text-[13px] mb-4" style="color:var(--muted)">Adicione sua primeira turma para começar.</div>
+      <button id="btnNovaTurma" class="btn btn-primary">+ Nova turma</button>
+    </div>`;
+  }
+  return `
+    <div class="flex justify-end mb-3"><button id="btnNovaTurma" class="btn btn-ghost">+ Nova turma</button></div>
+    <div class="space-y-3">
+      ${state.turmas.map(t=>turmaCard(t)).join("")}
+    </div>`;
+}
+
+function turmaCard(t){
+  const alunos = alunosDaTurma(t.id);
+  const tarefas = tarefasDaTurma(t.id);
+  const aberto = ui.openTurma === t.id;
+  return `
+  <div class="card p-4">
+    <div class="flex items-center justify-between cursor-pointer" data-toggle-turma="${t.id}">
+      <div>
+        <div class="font-bold text-[15px]">${esc(t.nome)}</div>
+        <div class="text-[12px]" style="color:var(--muted)">${alunos.length} aluno(s) · ${tarefas.length} tarefa(s)</div>
+      </div>
+      <div class="flex gap-1 items-center">
+        <button data-edit-turma="${t.id}" class="btn-ghost btn" style="padding:6px 10px">✎</button>
+        <button data-del-turma="${t.id}" class="btn-danger btn" style="padding:6px 10px">🗑</button>
+        <span style="color:var(--muted)">${aberto?"▲":"▼"}</span>
+      </div>
+    </div>
+    ${aberto ? `
+      <div class="mt-4 pt-4" style="border-top:1px solid var(--border)">
+        <div class="flex items-center justify-between mb-2">
+          <div class="text-[13px] font-bold">Alunos</div>
+          <button data-add-aluno="${t.id}" class="btn-ghost btn" style="padding:4px 10px;font-size:12px">+ aluno</button>
+        </div>
+        <div class="space-y-1 mb-4">
+          ${alunos.length ? alunos.map(a=>`
+            <div class="flex items-center justify-between py-1.5 px-2 rounded-lg" style="background:var(--bg)">
+              <span class="text-[13px]">${esc(a.nome)}</span>
+              <div class="flex gap-1">
+                <button data-edit-aluno="${a.id}" data-turma="${t.id}" style="color:var(--muted)" class="text-[12px] px-1">✎</button>
+                <button data-del-aluno="${a.id}" style="color:var(--danger)" class="text-[12px] px-1">🗑</button>
+              </div>
+            </div>`).join("") : `<div class="text-[12px]" style="color:var(--muted)">sem alunos ainda</div>`}
+        </div>
+        <div class="flex items-center justify-between mb-2">
+          <div class="text-[13px] font-bold">Tarefas</div>
+          <button data-add-tarefa="${t.id}" class="btn-ghost btn" style="padding:4px 10px;font-size:12px">+ tarefa</button>
+        </div>
+        <div class="space-y-2">
+          ${tarefas.length ? tarefas.map(tar=>`
+            <div class="p-2 rounded-lg" style="background:var(--bg)">
+              <div class="flex items-center justify-between">
+                <div class="cursor-pointer" data-open-tarefa="${tar.id}" style="flex:1">
+                  <div class="text-[13px] font-semibold">${esc(tar.titulo)}</div>
+                  <div class="flex items-center gap-2 mt-1">
+                    <span class="chip ${MATERIA_STYLES[tar.materia]||MATERIA_STYLES.Outra}">${esc(tar.materia)}</span>
+                    ${tar.dataEntrega ? `<span class="text-[11px]" style="color:var(--muted)">entrega ${fmtData(tar.dataEntrega)}</span>` : ""}
+                  </div>
+                </div>
+                <div class="flex gap-1">
+                  <button data-edit-tarefa="${tar.id}" data-turma="${t.id}" style="color:var(--muted)" class="text-[12px] px-1">✎</button>
+                  <button data-del-tarefa="${tar.id}" style="color:var(--danger)" class="text-[12px] px-1">🗑</button>
+                </div>
+              </div>
+            </div>`).join("") : `<div class="text-[12px]" style="color:var(--muted)">sem tarefas ainda</div>`}
+        </div>
+      </div>` : ""}
+  </div>`;
+}
+
+function fmtData(iso){
+  const [y,m,d] = iso.split("-");
+  return `${d}/${m}`;
+}
+
+function viewConfig(){
+  return `
+  <div class="card p-4 mb-3">
+    <div class="text-[13px] font-bold mb-2">Nome do(a) professor(a)</div>
+    <input id="inputProfessor" value="${esc(state.professorNome||"")}" placeholder="Seu nome">
+  </div>
+  <div class="card p-4 mb-3">
+    <div class="text-[13px] font-bold mb-2">Backup</div>
+    <div class="text-[12px] mb-3" style="color:var(--muted)">Os dados ficam salvos neste aparelho/navegador. Exporte um backup de vez em quando para não perder nada.</div>
+    <div class="flex gap-2">
+      <button id="btnExportar" class="btn btn-ghost" style="flex:1">Exportar backup</button>
+      <button id="btnImportarTrigger" class="btn btn-ghost" style="flex:1">Importar backup</button>
+      <input type="file" id="inputImportar" accept="application/json" style="display:none">
+    </div>
+  </div>
+  <div class="card p-4">
+    <div class="text-[13px] font-bold mb-2" style="color:var(--danger)">Zona de risco</div>
+    <div class="text-[12px] mb-3" style="color:var(--muted)">Use "Limpar tudo" quando for entregar o app pronto para outro(a) professor(a) usar com a turma dele(a).</div>
+    <div class="flex flex-col gap-2">
+      <button id="btnLimparTudo" class="btn btn-danger">Limpar tudo e começar do zero</button>
+      <button id="btnRestaurarExemplo" class="btn btn-ghost">Restaurar dados de exemplo</button>
+    </div>
+  </div>`;
+}
+
+function modal(){
+  const m = ui.modal;
+  if(m.type==="confirm"){
+    return `<div class="modal-backdrop" id="backdrop">
+      <div class="modal">
+        <div class="text-[16px] font-bold mb-2">${esc(m.titulo)}</div>
+        <div class="text-[13px] mb-5" style="color:var(--muted)">${esc(m.mensagem)}</div>
+        <div class="flex gap-2">
+          <button id="modalCancel" class="btn btn-ghost" style="flex:1">Cancelar</button>
+          <button id="modalOk" class="btn btn-danger" style="flex:1">Confirmar</button>
+        </div>
+      </div>
+    </div>`;
+  }
+  if(m.type==="turma"){
+    return `<div class="modal-backdrop" id="backdrop">
+      <div class="modal">
+        <div class="text-[16px] font-bold mb-4">${m.data.id?"Editar turma":"Nova turma"}</div>
+        <label class="text-[12px] font-semibold">Nome da turma</label>
+        <input id="fTurmaNome" value="${esc(m.data.nome)}" placeholder="Ex: 5º Ano F" class="mb-4">
+        <div class="flex gap-2">
+          <button id="modalCancel" class="btn btn-ghost" style="flex:1">Cancelar</button>
+          <button id="modalOk" class="btn btn-primary" style="flex:1">Salvar</button>
+        </div>
+      </div>
+    </div>`;
+  }
+  if(m.type==="aluno"){
+    return `<div class="modal-backdrop" id="backdrop">
+      <div class="modal">
+        <div class="text-[16px] font-bold mb-4">${m.data.id?"Editar aluno":"Novo aluno"}</div>
+        <label class="text-[12px] font-semibold">Nome do aluno</label>
+        <input id="fAlunoNome" value="${esc(m.data.nome)}" placeholder="Nome completo" class="mb-4">
+        <div class="flex gap-2">
+          <button id="modalCancel" class="btn btn-ghost" style="flex:1">Cancelar</button>
+          <button id="modalOk" class="btn btn-primary" style="flex:1">Salvar</button>
+        </div>
+      </div>
+    </div>`;
+  }
+  if(m.type==="tarefa"){
+    const d = m.data;
+    return `<div class="modal-backdrop" id="backdrop">
+      <div class="modal">
+        <div class="text-[16px] font-bold mb-4">${d.id?"Editar tarefa":"Nova tarefa"}</div>
+        <label class="text-[12px] font-semibold">Título</label>
+        <input id="fTarTitulo" value="${esc(d.titulo)}" placeholder="Ex: Lista de exercícios" class="mb-3">
+        <label class="text-[12px] font-semibold">Matéria</label>
+        <select id="fTarMateria" class="mb-3">
+          ${MATERIAS.map(m2=>`<option value="${m2}" ${d.materia===m2?"selected":""}>${m2}</option>`).join("")}
+        </select>
+        <label class="text-[12px] font-semibold">Data de entrega</label>
+        <input id="fTarData" type="date" value="${d.dataEntrega||""}" class="mb-3">
+        <label class="text-[12px] font-semibold">Descrição (opcional)</label>
+        <textarea id="fTarDesc" rows="2" class="mb-4">${esc(d.descricao||"")}</textarea>
+        <div class="flex gap-2">
+          <button id="modalCancel" class="btn btn-ghost" style="flex:1">Cancelar</button>
+          <button id="modalOk" class="btn btn-primary" style="flex:1">Salvar</button>
+        </div>
+      </div>
+    </div>`;
+  }
+  if(m.type==="detalheTarefa"){
+    const tar = state.tarefas.find(x=>x.id===m.data.id) || m.data;
+    const alunos = alunosDaTurma(tar.turmaId);
+    return `<div class="modal-backdrop" id="backdrop">
+      <div class="modal">
+        <div class="text-[16px] font-bold mb-1">${esc(tar.titulo)}</div>
+        <div class="text-[12px] mb-4" style="color:var(--muted)">${esc(tar.materia)}${tar.dataEntrega?" · entrega "+fmtData(tar.dataEntrega):""}</div>
+        <div class="space-y-2 mb-4 scrollx" style="max-height:50vh;overflow-y:auto">
+          ${alunos.length ? alunos.map(a=>{
+            const e = entregaDe(tar.id, a.id);
+            const status = e ? e.status : "Pendente";
+            return `<div class="flex items-center justify-between py-1">
+              <span class="text-[13px]">${esc(a.nome)}</span>
+              <select data-set-status data-aluno="${a.id}" data-tarefa="${tar.id}" class="chip ${STATUS_STYLES[status]}" style="width:auto;border:none;padding:4px 8px">
+                ${STATUSES.map(s=>`<option value="${s}" ${status===s?"selected":""}>${s}</option>`).join("")}
+              </select>
+            </div>`;
+          }).join("") : `<div class="text-[12px]" style="color:var(--muted)">essa turma ainda não tem alunos</div>`}
+        </div>
+        <button id="modalCancel" class="btn btn-ghost" style="width:100%">Fechar</button>
+      </div>
+    </div>`;
+  }
+  return "";
+}
+
+function wireEvents(){
+  const app = document.getElementById("app");
+  const q = sel => app.querySelector(sel);
+  const on = (sel, ev, fn) => { const el=q(sel); if(el) el.addEventListener(ev, fn); };
+
+  on("#btnSalvar","click", salvarManual);
+  app.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click", ()=>{ ui.tab=b.dataset.tab; render(); }));
+
+  on("#btnNovaTurma","click", ()=>abrirModalTurma(null));
+  app.querySelectorAll("[data-toggle-turma]").forEach(el=>el.addEventListener("click", (e)=>{
+    if(e.target.closest("button")) return;
+    const id = el.dataset.toggleTurma;
+    ui.openTurma = ui.openTurma===id ? null : id;
+    render();
+  }));
+  app.querySelectorAll("[data-edit-turma]").forEach(el=>el.addEventListener("click", ()=>abrirModalTurma(state.turmas.find(t=>t.id===el.dataset.editTurma))));
+  app.querySelectorAll("[data-del-turma]").forEach(el=>el.addEventListener("click", ()=>apagarTurma(el.dataset.delTurma)));
+
+  app.querySelectorAll("[data-add-aluno]").forEach(el=>el.addEventListener("click", ()=>abrirModalAluno(el.dataset.addAluno, null)));
+  app.querySelectorAll("[data-edit-aluno]").forEach(el=>el.addEventListener("click", ()=>abrirModalAluno(el.dataset.turma, state.alunos.find(a=>a.id===el.dataset.editAluno))));
+  app.querySelectorAll("[data-del-aluno]").forEach(el=>el.addEventListener("click", ()=>apagarAluno(el.dataset.delAluno)));
+
+  app.querySelectorAll("[data-add-tarefa]").forEach(el=>el.addEventListener("click", ()=>abrirModalTarefa(el.dataset.addTarefa, null)));
+  app.querySelectorAll("[data-edit-tarefa]").forEach(el=>el.addEventListener("click", ()=>abrirModalTarefa(el.dataset.turma, state.tarefas.find(t=>t.id===el.dataset.editTarefa))));
+  app.querySelectorAll("[data-del-tarefa]").forEach(el=>el.addEventListener("click", ()=>apagarTarefa(el.dataset.delTarefa)));
+  app.querySelectorAll("[data-open-tarefa]").forEach(el=>el.addEventListener("click", ()=>abrirDetalheTarefa(state.tarefas.find(t=>t.id===el.dataset.openTarefa))));
+
+  on("#inputProfessor","change", (e)=>{ state.professorNome=e.target.value; persist(); render(); });
+  on("#btnExportar","click", exportarBackup);
+  on("#btnImportarTrigger","click", ()=>q("#inputImportar").click());
+  on("#inputImportar","change", (e)=>{ if(e.target.files[0]) importarBackup(e.target.files[0]); });
+  on("#btnLimparTudo","click", limparTudo);
+  on("#btnRestaurarExemplo","click", restaurarExemplo);
+
+  app.querySelectorAll("[data-set-status]").forEach(el=>el.addEventListener("change", ()=>{
+    setEntrega(el.dataset.tarefa, el.dataset.aluno, el.value);
+    ui.modal.data = state.tarefas.find(t=>t.id===el.dataset.tarefa);
+  }));
+
+  on("#backdrop","click",(e)=>{ if(e.target.id==="backdrop"){ ui.modal=null; render(); } });
+  on("#modalCancel","click", ()=>{ ui.modal=null; render(); });
+  on("#modalOk","click", ()=>{
+    const m = ui.modal;
+    if(m.type==="confirm") return m.onOk();
+    if(m.type==="turma") return salvarTurma(q("#fTurmaNome").value, m.data.id);
+    if(m.type==="aluno") return salvarAluno(q("#fAlunoNome").value, m.data.id, m.data.turmaId);
+    if(m.type==="tarefa") return salvarTarefa({
+      id:m.data.id, turmaId:m.data.turmaId,
+      titulo:q("#fTarTitulo").value, materia:q("#fTarMateria").value,
+      dataEntrega:q("#fTarData").value, descricao:q("#fTarDesc").value
+    });
+  });
+}
+
+render();
+</script>
+</body>
+</html>
